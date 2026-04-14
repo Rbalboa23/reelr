@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reelr — Social Scheduler</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c0c0f;--surface:#15151a;--surface2:#1e1e26;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#f0f0f5;--muted:rgba(240,240,245,0.45);--muted2:rgba(240,240,245,0.2);
+  --yt:#ff4444;--ig:#e1306c;--tt:#69c9d0;--accent:#7b61ff;--green:#34d399;
+  --r:12px;--rs:8px;--fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;--fm:'DM Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px;line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100}
+.logo{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:-0.5px}
+.logo span{color:var(--accent)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.nav-tabs{display:flex;gap:4px}
+.nav-tab{padding:6px 16px;border-radius:40px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--muted);transition:all .15s}
+.nav-tab:hover{color:var(--text);background:var(--surface)}
+.nav-tab.active{background:var(--surface2);color:var(--text);border-color:var(--border2)}
+.yt-pill{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:40px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--muted);transition:all .15s;font-family:var(--fb)}
+.yt-pill:hover{background:var(--surface2);color:var(--text)}
+.yt-pill.on{border-color:rgba(255,68,68,.4);color:var(--yt);background:rgba(255,68,68,.08)}
+.yt-dot{width:7px;height:7px;border-radius:50%;background:var(--muted2)}
+.yt-dot.on{background:var(--yt)}
+.icon-pill{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .15s}
+.icon-pill:hover{background:var(--surface2);color:var(--text)}
+.new-btn{padding:8px 18px;border-radius:40px;background:var(--accent);color:#fff;font-weight:500;font-size:13px;cursor:pointer;border:none;font-family:var(--fb);transition:opacity .15s}
+.new-btn:hover{opacity:.85}
+/* MAIN */
+.main{flex:1;padding:28px;max-width:1140px;margin:0 auto;width:100%}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px}
+.stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.stat-val{font-family:var(--fd);font-size:26px;font-weight:700}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:4px}
+/* BADGES */
+.pb{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:500;margin-right:3px}
+.pb-ig{background:rgba(225,48,108,.12);color:#e1306c}
+.pb-tt{background:rgba(105,201,208,.12);color:#69c9d0}
+.pb-yt{background:rgba(255,68,68,.12);color:#ff4444}
+.pd{width:5px;height:5px;border-radius:50%}
+.pd-ig{background:#e1306c}.pd-tt{background:#69c9d0}.pd-yt{background:#ff4444}
+.sb{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.sb-scheduled{background:rgba(123,97,255,.15);color:#a78bfa}
+.sb-draft{background:rgba(240,240,245,.07);color:var(--muted)}
+.sb-posted{background:rgba(52,211,153,.13);color:#34d399}
+/* TABLE */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sec-title{font-family:var(--fd);font-size:16px;font-weight:700}
+.filters{display:flex;gap:8px}
+.fbtn{padding:5px 14px;border-radius:40px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--muted);transition:all .15s;font-family:var(--fb)}
+.fbtn:hover,.fbtn.active{background:var(--surface2);color:var(--text)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 14px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);font-weight:500}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.015)}
+.cap{font-size:13px;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mono{font-family:var(--fm);font-size:12px;color:var(--muted)}
+.row-actions{display:flex;gap:5px;align-items:center}
+.ib{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--muted);transition:all .15s;font-size:13px}
+.ib:hover{background:var(--surface2);border-color:var(--border2);color:var(--text)}
+.ib.del:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:#f87171}
+.upload-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;background:rgba(255,68,68,.1);color:#ff6666;border:1px solid rgba(255,68,68,.25);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--fb);transition:all .15s}
+.upload-btn:hover{background:rgba(255,68,68,.2)}
+.yt-link{font-size:11px;color:var(--yt)}
+.empty{text-align:center;padding:60px 20px;border:1px solid var(--border);border-radius:var(--r)}
+.empty-ico{font-size:32px;margin-bottom:10px;opacity:.4}
+.empty-ttl{font-family:var(--fd);font-size:15px;font-weight:600;margin-bottom:6px}
+.empty-sub{font-size:13px;color:var(--muted)}
+/* CALENDAR */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-hdr{text-align:center;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:6px 0}
+.cal-day{min-height:78px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;cursor:pointer;transition:border-color .15s}
+.cal-day:hover{border-color:var(--border2)}
+.cal-day.other{opacity:.3}
+.cal-day.today{border-color:var(--accent)}
+.cal-num{font-size:12px;font-weight:500;margin-bottom:4px}
+.cal-dots{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.cal-dot{width:6px;height:6px;border-radius:50%}
+.cal-nav{display:flex;align-items:center;gap:14px}
+.cal-nbtn{width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}
+.cal-title{font-family:var(--fd);font-size:15px;font-weight:700;min-width:130px;text-align:center}
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px}
+.modal-title{font-family:var(--fd);font-size:20px;font-weight:700;margin-bottom:22px}
+.form-row{margin-bottom:18px}
+.lbl{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-weight:500}
+.plat-sel{display:flex;gap:8px;flex-wrap:wrap}
+.pt{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:500;background:transparent;color:var(--muted);transition:all .15s;font-family:var(--fb)}
+.pt:hover{border-color:var(--border2);color:var(--text)}
+.pt.on-ig{border-color:#e1306c;background:rgba(225,48,108,.1);color:#e1306c}
+.pt.on-tt{border-color:#69c9d0;background:rgba(105,201,208,.1);color:#69c9d0}
+.pt.on-yt{border-color:#ff4444;background:rgba(255,68,68,.1);color:#ff6666}
+textarea.ti,input.ti{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:var(--fb);font-size:14px;padding:10px 14px;outline:none}
+textarea.ti{resize:vertical;min-height:90px;line-height:1.6}
+input.ti{height:40px}
+textarea.ti:focus,input.ti:focus{border-color:var(--border2)}
+textarea.ti::placeholder,input.ti::placeholder{color:var(--muted2)}
+select.ti{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:var(--fb);font-size:14px;padding:10px 14px;outline:none;appearance:none;cursor:pointer;height:40px}
+select.ti:focus{border-color:var(--border2)}
+.cap-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.char{font-size:11px;color:var(--muted);font-family:var(--fm)}
+.ai-btn{padding:5px 12px;border-radius:20px;background:rgba(123,97,255,.15);color:#a78bfa;border:1px solid rgba(123,97,255,.25);cursor:pointer;font-size:12px;font-weight:500;font-family:var(--fb);transition:all .15s;display:flex;align-items:center;gap:5px}
+.ai-btn:hover{background:rgba(123,97,255,.28)}
+.ai-btn:disabled{opacity:.45;cursor:not-allowed}
+.ai-sugg{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.ai-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:13px;cursor:pointer;transition:border-color .15s;line-height:1.5}
+.ai-item:hover{border-color:var(--accent)}
+.tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{padding:3px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;font-family:var(--fm)}
+.tag:hover{border-color:var(--accent);color:#a78bfa}
+.date-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border)}
+.btn-cancel{padding:9px 20px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;font-size:14px;font-family:var(--fb);transition:all .15s}
+.btn-cancel:hover{color:var(--text);background:var(--surface2)}
+.btn-draft{padding:9px 20px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text);font-weight:500;cursor:pointer;font-size:14px;font-family:var(--fb);transition:all .15s}
+.btn-draft:hover{background:var(--surface2)}
+.btn-primary{padding:9px 20px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:500;cursor:pointer;font-size:14px;font-family:var(--fb);transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+/* YT FIELDS */
+.yt-section{background:rgba(255,68,68,.04);border:1px solid rgba(255,68,68,.15);border-radius:var(--rs);padding:16px;margin-top:10px}
+.yt-sec-title{font-size:11px;font-weight:500;color:#ff6666;margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+.yt-section .form-row{margin-bottom:12px}
+.yt-section .form-row:last-child{margin-bottom:0}
+.sched-note{font-size:12px;color:rgba(255,180,100,.8);margin-top:-4px;margin-bottom:8px}
+/* MEDIA */
+.drop{width:100%;border:1.5px dashed var(--border2);border-radius:var(--rs);padding:22px;text-align:center;cursor:pointer;transition:all .15s;color:var(--muted);background:var(--surface2)}
+.drop:hover{border-color:var(--accent);color:var(--text)}
+.file-prev{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px}
+.file-thumb{width:40px;height:40px;border-radius:4px;background:var(--border2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.file-info{flex:1;min-width:0}
+.file-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-size{font-size:11px;color:var(--muted)}
+.file-rm{font-size:16px;cursor:pointer;color:var(--muted);background:none;border:none;transition:color .15s}
+.file-rm:hover{color:#f87171}
+/* SETTINGS */
+.sett-sec{margin-bottom:22px}
+.sett-sec-title{font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.sett-note{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+.sett-note a{color:#a78bfa}
+.sett-note code{font-family:var(--fm);font-size:11px;background:var(--surface2);padding:1px 5px;border-radius:4px}
+.yt-connect-btn{width:100%;padding:11px;border-radius:8px;background:rgba(255,68,68,.12);color:#ff6666;border:1px solid rgba(255,68,68,.25);cursor:pointer;font-size:14px;font-weight:500;font-family:var(--fb);transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.yt-connect-btn:hover{background:rgba(255,68,68,.22)}
+.yt-disconnect-btn{width:100%;padding:9px;border-radius:8px;background:transparent;color:var(--muted);border:1px solid var(--border2);cursor:pointer;font-size:13px;font-family:var(--fb);transition:all .15s;margin-top:8px}
+.yt-disconnect-btn:hover{color:var(--text);background:var(--surface2)}
+/* UPLOADING OVERLAY */
+.uploading-card{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:36px;max-width:320px;width:100%;text-align:center}
+.spin-lg{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--yt);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* CONFIRM */
+.confirm-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:24px;max-width:360px;width:100%;text-align:center}
+.confirm-title{font-family:var(--fd);font-weight:700;font-size:17px;margin-bottom:8px}
+.confirm-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.confirm-acts{display:flex;gap:10px;justify-content:center}
+.btn-del{padding:8px 20px;border-radius:8px;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.22);font-family:var(--fb);font-size:13px;font-weight:500;cursor:pointer}
+.btn-del:hover{background:rgba(239,68,68,.25)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:40px;padding:10px 20px;font-size:13px;font-weight:500;z-index:999;animation:toast-in .2s ease;white-space:nowrap}
+@keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* AI loading */
+.ai-load{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px;padding:10px 0}
+.spin-sm{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+.view{display:none}.view.active{display:block}
+input[type=date],input[type=time]{color-scheme:dark}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">reel<span>r</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchView('dashboard')">Dashboard</button>
+    <button class="nav-tab" onclick="switchView('calendar')">Calendar</button>
+  </div>
+  <div class="topbar-right">
+    <button class="yt-pill" id="yt-pill" onclick="openSettings()">
+      <div class="yt-dot" id="yt-dot"></div>
+      <span id="yt-lbl">Connect YouTube</span>
+    </button>
+    <button class="icon-pill" onclick="openSettings()">⚙</button>
+    <button class="new-btn" onclick="openPostModal()">+ New post</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="view-dashboard" class="view active">
+    <div class="stats" id="stats-row"></div>
+    <div class="sec-hdr">
+      <div class="sec-title">Posts</div>
+      <div class="filters">
+        <button class="fbtn active" onclick="setFilter('all',this)">All</button>
+        <button class="fbtn" onclick="setFilter('scheduled',this)">Scheduled</button>
+        <button class="fbtn" onclick="setFilter('draft',this)">Drafts</button>
+        <button class="fbtn" onclick="setFilter('posted',this)">Posted</button>
+      </div>
+    </div>
+    <table id="posts-table">
+      <thead><tr>
+        <th>Platforms</th><th>Caption / Title</th><th>Media</th>
+        <th>Scheduled for</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="posts-body"></tbody>
+    </table>
+    <div id="empty-state" class="empty" style="display:none">
+      <div class="empty-ico">📅</div>
+      <div class="empty-ttl">No posts yet</div>
+      <div class="empty-sub">Click <strong>+ New post</strong> to schedule your first short</div>
+    </div>
+  </div>
+
+  <div id="view-calendar" class="view">
+    <div class="sec-hdr">
+      <div class="cal-nav">
+        <button class="cal-nbtn" onclick="changeMonth(-1)">‹</button>
+        <div class="cal-title" id="cal-title"></div>
+        <button class="cal-nbtn" onclick="changeMonth(1)">›</button>
+      </div>
+      <button class="new-btn" onclick="openPostModal()" style="font-size:12px;padding:7px 16px">+ New post</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+</div>
+
+<!-- POST MODAL -->
+<div class="overlay" id="post-modal" style="display:none" onclick="if(event.target===this)closePostModal()">
+  <div class="modal">
+    <div class="modal-title" id="post-modal-title">New post</div>
+    <div class="form-row">
+      <label class="lbl">Platforms</label>
+      <div class="plat-sel">
+        <button class="pt" data-p="ig" onclick="togglePlatform('ig',this)">📸 Instagram</button>
+        <button class="pt" data-p="tt" onclick="togglePlatform('tt',this)">🎵 TikTok</button>
+        <button class="pt" data-p="yt" onclick="togglePlatform('yt',this)">▶ YouTube</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="lbl">Caption</label>
+      <textarea class="ti" id="cap-input" placeholder="Write your caption…" oninput="updateCharCount()" maxlength="2200"></textarea>
+      <div class="cap-row">
+        <span class="char" id="char-count">0 / 2200</span>
+        <button class="ai-btn" id="ai-btn" onclick="generateCaptions()">✦ AI suggest</button>
+      </div>
+      <div id="ai-output"></div>
+      <div class="tag-row" id="tag-row"></div>
+    </div>
+    <div id="yt-fields" style="display:none">
+      <div class="yt-section">
+        <div class="yt-sec-title">▶ YouTube settings</div>
+        <div class="form-row">
+          <label class="lbl">Video title</label>
+          <input type="text" class="ti" id="yt-title" placeholder="Leave blank to use caption" maxlength="100">
+        </div>
+        <div class="form-row">
+          <label class="lbl">Description</label>
+          <textarea class="ti" id="yt-desc" placeholder="Optional…" style="min-height:60px" maxlength="5000"></textarea>
+        </div>
+        <div class="form-row">
+          <label class="lbl">Privacy</label>
+          <select class="ti" id="yt-privacy" onchange="handlePrivacyChange()">
+            <option value="public">Public — goes live immediately on upload</option>
+            <option value="unlisted">Unlisted</option>
+            <option value="private">Private</option>
+            <option value="scheduled">Scheduled — YouTube auto-publishes at the time below</option>
+          </select>
+        </div>
+        <div id="sched-note" class="sched-note" style="display:none">⏰ YouTube will hold it as Private and publish automatically at your scheduled time.</div>
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:14px">
+      <label class="lbl">Video / Image</label>
+      <div id="media-zone" onclick="document.getElementById('file-input').click()" style="cursor:pointer">
+        <div class="drop">
+          <div style="font-size:22px;margin-bottom:6px">🎬</div>
+          <div style="font-size:13px;font-weight:500">Click to attach video or image</div>
+          <div style="font-size:12px;margin-top:3px;color:var(--muted2)">MP4, MOV, JPG, PNG · max 512 MB</div>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept="video/*,image/*" style="display:none" onchange="handleFile(event)">
+      <div id="existing-file" style="display:none;margin-top:8px;font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div class="form-row date-row">
+      <div><label class="lbl">Date</label><input type="date" class="ti" id="sched-date"></div>
+      <div><label class="lbl">Time (your local time)</label><input type="time" class="ti" id="sched-time"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closePostModal()">Cancel</button>
+      <button class="btn-draft" onclick="savePost('draft')">Save draft</button>
+      <button class="btn-primary" id="save-btn" onclick="savePost('scheduled')">Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="settings-modal" style="display:none" onclick="if(event.target===this)closeSettings()">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title">Settings</div>
+    <div class="sett-sec">
+      <div class="sett-sec-title">YouTube</div>
+      <div id="yt-connected-view" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px;background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.2);border-radius:var(--rs);margin-bottom:12px">
+          <span style="font-size:18px">✓</span>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:#34d399">YouTube connected</div>
+            <div style="font-size:12px;color:var(--muted)">Posts with YouTube selected will auto-upload at their scheduled time.</div>
+          </div>
+        </div>
+        <button class="yt-disconnect-btn" onclick="disconnectYT()">Disconnect YouTube</button>
+      </div>
+      <div id="yt-disconnected-view">
+        <div class="sett-note" style="margin-bottom:14px">
+          Connecting YouTube allows Reelr to auto-upload videos at their scheduled time — no browser needed.<br><br>
+          Make sure <code id="redirect-uri-display"></code> is added to <strong>Authorized redirect URIs</strong> in your
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud credentials</a>.
+        </div>
+        <a class="yt-connect-btn" href="/auth/youtube"><span>▶</span> Connect YouTube</a>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn-cancel" onclick="closeSettings()">Close</button></div>
+  </div>
+</div>
+
+<!-- UPLOADING OVERLAY -->
+<div class="overlay" id="uploading-overlay" style="display:none">
+  <div class="uploading-card">
+    <div class="spin-lg"></div>
+    <div style="font-size:15px;font-weight:500;margin-bottom:6px">Uploading to YouTube…</div>
+    <div style="font-size:13px;color:var(--muted)">Please keep this tab open.<br>Large files may take a few minutes.</div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="overlay" id="confirm-modal" style="display:none" onclick="if(event.target===this)closeConfirm()">
+  <div class="confirm-card">
+    <div class="confirm-title">Delete post?</div>
+    <div class="confirm-sub">This will also remove any attached video file.</div>
+    <div class="confirm-acts">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-del" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const P_NAMES={ig:'Instagram',tt:'TikTok',yt:'YouTube'};
+let posts=[], ytConnected=false;
+let editingId=null, deleteId=null, selectedPlatforms=new Set();
+let currentFilter='all', calYear, calMonth;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init(){
+  const params=new URLSearchParams(location.search);
+  if(params.get('yt_connected')==='1') showToast('✓ YouTube connected!');
+  if(params.get('yt_error')) showToast('⚠ YouTube error: '+decodeURIComponent(params.get('yt_error')));
+  if(params.has('yt_connected')||params.has('yt_error')) history.replaceState({},'',location.pathname);
+  
+  document.getElementById('redirect-uri-display').textContent=location.origin+'/auth/youtube/callback';
+  
+  const now=new Date(); calYear=now.getFullYear(); calMonth=now.getMonth();
+  await Promise.all([checkYTStatus(), loadPosts()]);
+}
+
+async function checkYTStatus(){
+  try{
+    const r=await fetch('/auth/youtube/status');
+    const d=await r.json();
+    ytConnected=d.connected;
+    setYTPill(ytConnected);
+    document.getElementById('yt-connected-view').style.display=ytConnected?'block':'none';
+    document.getElementById('yt-disconnected-view').style.display=ytConnected?'none':'block';
+  }catch(e){}
+}
+
+function setYTPill(on){
+  const pill=document.getElementById('yt-pill');
+  const dot=document.getElementById('yt-dot');
+  const lbl=document.getElementById('yt-lbl');
+  pill.className='yt-pill'+(on?' on':'');
+  dot.className='yt-dot'+(on?' on':'');
+  lbl.textContent=on?'YouTube connected':'Connect YouTube';
+}
+
+async function loadPosts(){
+  try{
+    const r=await fetch('/api/posts');
+    posts=await r.json();
+  }catch(e){ posts=[]; }
+  render();
+}
+
+// ── Views ─────────────────────────────────────────────────────────────────────
+function switchView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&v==='dashboard')||(i===1&&v==='calendar')));
+  if(v==='calendar') renderCalendar();
+}
+function setFilter(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+// ── Post Modal ────────────────────────────────────────────────────────────────
+function openPostModal(id, prefillDate){
+  editingId=id||null;
+  selectedPlatforms=new Set();
+  document.getElementById('post-modal-title').textContent=id?'Edit post':'New post';
+  document.getElementById('cap-input').value='';
+  document.getElementById('yt-title').value='';
+  document.getElementById('yt-desc').value='';
+  document.getElementById('yt-privacy').value='public';
+  document.getElementById('yt-fields').style.display='none';
+  document.getElementById('sched-note').style.display='none';
+  document.getElementById('ai-output').innerHTML='';
+  document.getElementById('tag-row').innerHTML='';
+  document.getElementById('sched-date').value=prefillDate||todayStr();
+  document.getElementById('sched-time').value='09:00';
+  document.getElementById('existing-file').style.display='none';
+  document.getElementById('existing-file').textContent='';
+  resetMediaZone(); updateCharCount();
+  document.querySelectorAll('.pt').forEach(b=>b.className='pt');
+
+  if(id){
+    const p=posts.find(x=>x.id===id);
+    if(p){
+      document.getElementById('cap-input').value=p.caption||'';
+      document.getElementById('yt-title').value=p.ytTitle||'';
+      document.getElementById('yt-desc').value=p.ytDesc||'';
+      document.getElementById('yt-privacy').value=p.ytPrivacy||'public';
+      if(p.scheduledAt){
+        const d=new Date(p.scheduledAt);
+        document.getElementById('sched-date').value=d.toISOString().split('T')[0];
+        document.getElementById('sched-time').value=d.toTimeString().slice(0,5);
+      }
+      selectedPlatforms=new Set(p.platforms||[]);
+      selectedPlatforms.forEach(pl=>{
+        const b=document.querySelector(`.pt[data-p="${pl}"]`);
+        if(b) b.className=`pt on-${pl}`;
+      });
+      if(selectedPlatforms.has('yt')){ document.getElementById('yt-fields').style.display='block'; handlePrivacyChange(); }
+      if(p.hasFile && p.fileName){
+        const ef=document.getElementById('existing-file');
+        ef.style.display='block';
+        ef.textContent=`📎 Attached: ${p.fileName} (saved on server — select a new file to replace it)`;
+      }
+      updateCharCount();
+    }
+  }
+  document.getElementById('post-modal').style.display='flex';
+}
+
+function closePostModal(){ document.getElementById('post-modal').style.display='none'; }
+
+function togglePlatform(pl,btn){
+  if(selectedPlatforms.has(pl)){ selectedPlatforms.delete(pl); btn.className='pt'; }
+  else { selectedPlatforms.add(pl); btn.className=`pt on-${pl}`; }
+  document.getElementById('yt-fields').style.display=selectedPlatforms.has('yt')?'block':'none';
+}
+
+function handlePrivacyChange(){
+  const v=document.getElementById('yt-privacy').value;
+  document.getElementById('sched-note').style.display=v==='scheduled'?'block':'none';
+}
+
+function updateCharCount(){
+  document.getElementById('char-count').textContent=`${document.getElementById('cap-input').value.length} / 2200`;
+}
+
+async function savePost(status){
+  const caption=document.getElementById('cap-input').value.trim();
+  const date=document.getElementById('sched-date').value;
+  const time=document.getElementById('sched-time').value;
+  const platforms=[...selectedPlatforms];
+  if(!platforms.length){ showToast('⚠ Pick at least one platform'); return; }
+  const fileInput=document.getElementById('file-input');
+  const hasExistingFile=document.getElementById('existing-file').style.display!=='none';
+  if(!caption && !fileInput.files[0] && !hasExistingFile){ showToast('⚠ Add a caption or attach a video'); return; }
+  if(status==='scheduled'&&!date){ showToast('⚠ Pick a date'); return; }
+
+  const fd=new FormData();
+  if(editingId) fd.append('id',editingId);
+  fd.append('platforms',platforms.join(','));
+  fd.append('caption',caption);
+  fd.append('ytTitle',document.getElementById('yt-title').value.trim());
+  fd.append('ytDesc',document.getElementById('yt-desc').value.trim());
+  fd.append('ytPrivacy',document.getElementById('yt-privacy').value);
+  fd.append('status',status);
+  if(date&&time){
+    const ts=new Date(date+'T'+time).getTime();
+    const disp=new Date(date+'T'+time).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    fd.append('scheduledAt',ts);
+    fd.append('scheduledDisplay',disp);
+  }
+  if(fileInput.files[0]) fd.append('file',fileInput.files[0]);
+
+  const saveBtn=document.getElementById('save-btn');
+  saveBtn.disabled=true; saveBtn.textContent='Saving…';
+  try{
+    await fetch('/api/posts',{method:'POST',body:fd});
+    closePostModal();
+    await loadPosts();
+    showToast(status==='scheduled'?'✓ Post scheduled!':'✓ Draft saved');
+  }catch(e){
+    showToast('⚠ Save failed: '+e.message);
+  }
+  saveBtn.disabled=false; saveBtn.textContent='Schedule';
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+async function markPosted(id){
+  await fetch(`/api/posts/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'posted'})});
+  await loadPosts(); showToast('✓ Marked as posted');
+}
+
+function confirmDeletePost(id){ deleteId=id; document.getElementById('confirm-modal').style.display='flex'; }
+function closeConfirm(){ document.getElementById('confirm-modal').style.display='none'; deleteId=null; }
+async function confirmDelete(){
+  if(!deleteId){ closeConfirm(); return; }
+  await fetch(`/api/posts/${deleteId}`,{method:'DELETE'});
+  deleteId=null; closeConfirm(); await loadPosts(); showToast('Post deleted');
+}
+
+async function triggerUpload(id){
+  document.getElementById('uploading-overlay').style.display='flex';
+  try{
+    const r=await fetch(`/api/posts/${id}/upload`,{method:'POST'});
+    const d=await r.json();
+    document.getElementById('uploading-overlay').style.display='none';
+    if(d.ok){
+      showToast('✓ Uploaded to YouTube!');
+      await loadPosts();
+    } else {
+      showToast('⚠ '+d.error);
+    }
+  }catch(e){
+    document.getElementById('uploading-overlay').style.display='none';
+    showToast('⚠ Upload error: '+e.message);
+  }
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function openSettings(){ checkYTStatus(); document.getElementById('settings-modal').style.display='flex'; }
+function closeSettings(){ document.getElementById('settings-modal').style.display='none'; }
+async function disconnectYT(){
+  await fetch('/auth/youtube/disconnect',{method:'POST'});
+  ytConnected=false; setYTPill(false);
+  document.getElementById('yt-connected-view').style.display='none';
+  document.getElementById('yt-disconnected-view').style.display='block';
+  showToast('YouTube disconnected');
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render(){ renderStats(); renderTable(); }
+
+function renderStats(){
+  const sc=posts.filter(p=>p.status==='scheduled').length;
+  const dr=posts.filter(p=>p.status==='draft').length;
+  const po=posts.filter(p=>p.status==='posted').length;
+  const next=posts.filter(p=>p.status==='scheduled'&&p.scheduledAt>Date.now()).sort((a,b)=>a.scheduledAt-b.scheduledAt)[0];
+  document.getElementById('stats-row').innerHTML=`
+    <div class="stat-card"><div class="stat-lbl">Scheduled</div><div class="stat-val" style="color:#a78bfa">${sc}</div><div class="stat-sub">queued up</div></div>
+    <div class="stat-card"><div class="stat-lbl">Drafts</div><div class="stat-val">${dr}</div><div class="stat-sub">in progress</div></div>
+    <div class="stat-card"><div class="stat-lbl">Posted</div><div class="stat-val" style="color:#34d399">${po}</div><div class="stat-sub">published</div></div>
+    <div class="stat-card"><div class="stat-lbl">Next post</div><div class="stat-val" style="font-size:16px">${next?next.scheduledDisplay.split(',')[0]:'—'}</div><div class="stat-sub">${next?(next.platforms||[]).map(p=>P_NAMES[p]).join(', '):'nothing scheduled'}</div></div>`;
+}
+
+function renderTable(){
+  const filtered=currentFilter==='all'?posts:posts.filter(p=>p.status===currentFilter);
+  document.getElementById('empty-state').style.display=filtered.length?'none':'block';
+  document.getElementById('posts-table').style.display=filtered.length?'table':'none';
+  document.getElementById('posts-body').innerHTML=filtered.map(p=>`
+    <tr>
+      <td>${(p.platforms||[]).map(pl=>`<span class="pb pb-${pl}"><span class="pd pd-${pl}"></span>${P_NAMES[pl]}</span>`).join('')}</td>
+      <td><div class="cap">${esc(p.ytTitle||p.caption||'(no caption)')}</div></td>
+      <td style="font-size:12px;color:var(--muted)">${p.hasFile?`🎬 ${esc(p.fileName)}`:'—'}</td>
+      <td><div class="mono">${p.scheduledDisplay||'—'}</div></td>
+      <td>
+        ${statusBadge(p.status)}
+        ${p.ytUploaded?`<a class="yt-link" href="https://youtube.com/watch?v=${p.ytVideoId}" target="_blank">▶ view</a>`:''}
+      </td>
+      <td>
+        <div class="row-actions">
+          ${(p.platforms||[]).includes('yt')&&!p.ytUploaded&&p.status!=='draft'?`<button class="upload-btn" onclick="triggerUpload('${p.id}')">▶ Upload now</button>`:''}
+          ${p.status!=='posted'?`<button class="ib" title="Mark posted" onclick="markPosted('${p.id}')">✓</button>`:''}
+          <button class="ib" title="Edit" onclick="openPostModal('${p.id}')">✎</button>
+          <button class="ib del" title="Delete" onclick="confirmDeletePost('${p.id}')">✕</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function statusBadge(s){
+  return `<span class="sb sb-${s}">${{scheduled:'Scheduled',draft:'Draft',posted:'Posted'}[s]||s}</span> `;
+}
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+function changeMonth(d){ calMonth+=d; if(calMonth>11){calMonth=0;calYear++;} if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
+function renderCalendar(){
+  document.getElementById('cal-title').textContent=new Date(calYear,calMonth).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const firstDay=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const prev=new Date(calYear,calMonth,0).getDate();
+  const now=new Date(); const td=now.getDate(),tm=now.getMonth(),ty=now.getFullYear();
+  const byDay={};
+  posts.forEach(p=>{ if(!p.scheduledAt) return; const d=new Date(p.scheduledAt); if(d.getFullYear()===calYear&&d.getMonth()===calMonth){const n=d.getDate();if(!byDay[n])byDay[n]=[];byDay[n].push(p);} });
+  let html=days.map(d=>`<div class="cal-hdr">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++) html+=`<div class="cal-day other"><div class="cal-num">${prev-firstDay+i+1}</div></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday=d===td&&calMonth===tm&&calYear===ty;
+    const dp=byDay[d]||[];
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dots=dp.slice(0,6).map(p=>{const pl=(p.platforms||[])[0]||'ig';return `<div class="cal-dot" style="background:${{ig:'#e1306c',tt:'#69c9d0',yt:'#ff4444'}[pl]||'#a78bfa'}"></div>`;}).join('');
+    html+=`<div class="cal-day${isToday?' today':''}" onclick="openPostModal(null,'${ds}')"><div class="cal-num">${d}</div>${dp.length?`<div class="cal-dots">${dots}</div>`:''}</div>`;
+  }
+  const rem=(7-((firstDay+daysInMonth)%7))%7;
+  for(let i=1;i<=rem;i++) html+=`<div class="cal-day other"><div class="cal-num">${i}</div></div>`;
+  document.getElementById('cal-grid').innerHTML=html;
+}
+
+// ── Media ─────────────────────────────────────────────────────────────────────
+function handleFile(e){ const f=e.target.files[0]; if(!f) return; showFilePrev(f.name,fmtBytes(f.size)); }
+function showFilePrev(name,size){
+  const vid=/\.(mp4|mov|avi|webm)$/i.test(name);
+  document.getElementById('media-zone').innerHTML=`
+    <div class="file-prev">
+      <div class="file-thumb">${vid?'🎬':'🖼'}</div>
+      <div class="file-info"><div class="file-name">${esc(name)}</div><div class="file-size">${size}</div></div>
+      <button class="file-rm" onclick="resetMediaZone();document.getElementById('file-input').value=''">✕</button>
+    </div>`;
+}
+function resetMediaZone(){
+  document.getElementById('media-zone').innerHTML=`<div class="drop" onclick="document.getElementById('file-input').click()"><div style="font-size:22px;margin-bottom:6px">🎬</div><div style="font-size:13px;font-weight:500">Click to attach video or image</div><div style="font-size:12px;margin-top:3px;color:var(--muted2)">MP4, MOV, JPG, PNG · max 512 MB</div></div>`;
+}
+
+// ── AI Captions ───────────────────────────────────────────────────────────────
+async function generateCaptions(){
+  const cap=document.getElementById('cap-input').value.trim();
+  const plats=[...selectedPlatforms];
+  if(!plats.length){ showToast('⚠ Select a platform first'); return; }
+  const btn=document.getElementById('ai-btn');
+  btn.disabled=true; btn.textContent='✦ Generating…';
+  document.getElementById('ai-output').innerHTML='<div class="ai-load"><div class="spin-sm"></div> Writing captions…</div>';
+  document.getElementById('tag-row').innerHTML='';
+  const hint=cap?`Based on: "${cap.slice(0,120)}". `:'';
+  const prompt=`${hint}Generate 3 punchy captions for a short video on ${plats.map(p=>P_NAMES[p]).join(', ')}. Include 2-4 emojis each. Suggest 5 hashtags. Respond ONLY as JSON: {"captions":["...","...","..."],"hashtags":["#...","#...","#...","#...","#..."]}`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const parsed=JSON.parse((data.content||[]).map(c=>c.text||'').join('').replace(/```json|```/g,'').trim());
+    document.getElementById('ai-output').innerHTML=`<div class="ai-sugg">${(parsed.captions||[]).map(c=>`<div class="ai-item" onclick="useCaption(this)">${esc(c)}</div>`).join('')}</div>`;
+    if(parsed.hashtags?.length) document.getElementById('tag-row').innerHTML=`<div style="font-size:11px;color:var(--muted);width:100%;margin-bottom:4px">Click to add hashtag</div>`+parsed.hashtags.map(h=>`<span class="tag" onclick="addTag('${h}')">${h}</span>`).join('');
+  }catch(e){
+    document.getElementById('ai-output').innerHTML='<div style="color:#f87171;font-size:13px;padding:8px 0">Could not generate. Try again.</div>';
+  }
+  btn.disabled=false; btn.textContent='✦ AI suggest';
+}
+function useCaption(el){ document.getElementById('cap-input').value=el.textContent; updateCharCount(); document.getElementById('ai-output').innerHTML=''; document.getElementById('tag-row').innerHTML=''; }
+function addTag(tag){ const ta=document.getElementById('cap-input'); ta.value=ta.value+(ta.value&&!ta.value.endsWith(' ')?' ':'')+tag+' '; updateCharCount(); }
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function fmtBytes(b){ if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(msg){ const e=document.querySelector('.toast'); if(e) e.remove(); const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
+
+init();
+</script>
+</body>
+</html>
