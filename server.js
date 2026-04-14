@@ -13,11 +13,33 @@ const DATA_DIR = process.env.DATA_DIR || __dirname;
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 const DB_PATH = path.join(DATA_DIR, 'reelr.db');
 
+// ── Startup diagnostics ───────────────────────────────────────────────────────
+console.log('=== REELR STARTUP ===');
+console.log('DATA_DIR:', DATA_DIR);
+console.log('DB_PATH:', DB_PATH);
+console.log('UPLOADS_DIR:', UPLOADS_DIR);
+console.log('GOOGLE_CLIENT_ID set:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('GOOGLE_CLIENT_SECRET set:', !!process.env.GOOGLE_CLIENT_SECRET);
+console.log('REDIRECT_URI:', process.env.REDIRECT_URI);
+
+// Check /data is writable
+try {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const testFile = path.join(DATA_DIR, '.write-test');
+  fs.writeFileSync(testFile, 'ok');
+  fs.unlinkSync(testFile);
+  console.log('DATA_DIR is writable ✓');
+} catch (e) {
+  console.error('DATA_DIR is NOT writable:', e.message);
+}
+
 // ── Directories ───────────────────────────────────────────────────────────────
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // ── Database ──────────────────────────────────────────────────────────────────
 const db = new Database(DB_PATH);
+console.log('Database opened at:', DB_PATH);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS posts (
     id TEXT PRIMARY KEY,
@@ -41,6 +63,10 @@ db.exec(`
   );
 `);
 
+// Check if tokens already exist on startup
+const existingTokens = db.prepare("SELECT value FROM settings WHERE key='yt_tokens'").get();
+console.log('YouTube tokens in DB on startup:', existingTokens ? 'YES ✓' : 'NO');
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -49,7 +75,7 @@ const storage = multer.diskStorage({
   destination: UPLOADS_DIR,
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`)
 });
-const upload = multer({ storage, limits: { fileSize: 512 * 1024 * 1024 } }); // 512MB max
+const upload = multer({ storage, limits: { fileSize: 512 * 1024 * 1024 } });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -75,7 +101,8 @@ function deserialize(p) {
 
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 function getOAuth2Client() {
-  const redirectUri = process.env.REDIRECT_URI || `http://localhost:${PORT}/auth/youtube/callback`;
+  const redirectUri = process.env.REDIRECT_URI;
+  console.log('Creating OAuth2 client with redirect URI:', redirectUri);
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -89,7 +116,6 @@ async function getAuthClient() {
   const tokens = JSON.parse(row.value);
   const client = getOAuth2Client();
   client.setCredentials(tokens);
-  // Refresh token proactively if expiring within 2 minutes
   if (tokens.expiry_date && tokens.expiry_date < Date.now() + 120000) {
     try {
       const { credentials } = await client.refreshAccessToken();
@@ -104,6 +130,7 @@ async function getAuthClient() {
 
 // ── Auth routes ───────────────────────────────────────────────────────────────
 app.get('/auth/youtube', (req, res) => {
+  console.log('OAuth flow started');
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET)
     return res.status(500).send('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET env vars are not set.');
   const url = getOAuth2Client().generateAuthUrl({
@@ -111,15 +138,21 @@ app.get('/auth/youtube', (req, res) => {
     scope: ['https://www.googleapis.com/auth/youtube.upload'],
     prompt: 'consent'
   });
+  console.log('Redirecting to Google auth URL');
   res.redirect(url);
 });
 
 app.get('/auth/youtube/callback', async (req, res) => {
   const { code, error } = req.query;
+  console.log('OAuth callback received. Error:', error, 'Code present:', !!code);
   if (error || !code) return res.redirect(`/?yt_error=${encodeURIComponent(error || 'no_code')}`);
   try {
     const { tokens } = await getOAuth2Client().getToken(code);
+    console.log('Tokens received from Google. Has refresh_token:', !!tokens.refresh_token);
     db.prepare("INSERT OR REPLACE INTO settings VALUES (?,?)").run('yt_tokens', JSON.stringify(tokens));
+    // Verify it was saved
+    const saved = db.prepare("SELECT value FROM settings WHERE key='yt_tokens'").get();
+    console.log('Tokens saved to DB:', !!saved ? 'YES ✓' : 'FAILED ✗');
     res.redirect('/?yt_connected=1');
   } catch (e) {
     console.error('OAuth callback error:', e.message);
@@ -129,6 +162,7 @@ app.get('/auth/youtube/callback', async (req, res) => {
 
 app.get('/auth/youtube/status', (req, res) => {
   const row = db.prepare("SELECT value FROM settings WHERE key='yt_tokens'").get();
+  console.log('YouTube status check — connected:', !!row);
   res.json({ connected: !!row });
 });
 
@@ -146,7 +180,6 @@ app.post('/api/posts', upload.single('file'), (req, res) => {
   const d = req.body;
   const id = d.id || genId();
   const existing = db.prepare('SELECT * FROM posts WHERE id=?').get(id);
-  // Delete old file if replacing
   if (existing && req.file && existing.file_path && fs.existsSync(existing.file_path)) {
     try { fs.unlinkSync(existing.file_path); } catch (e) {}
   }
@@ -155,14 +188,8 @@ app.post('/api/posts', upload.single('file'), (req, res) => {
       (id,platforms,caption,yt_title,yt_desc,yt_privacy,scheduled_at,scheduled_display,status,file_path,file_name,yt_uploaded,yt_video_id,created_at)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
-    id,
-    d.platforms || '',
-    d.caption || '',
-    d.ytTitle || '',
-    d.ytDesc || '',
-    d.ytPrivacy || 'public',
-    parseInt(d.scheduledAt) || 0,
-    d.scheduledDisplay || '',
+    id, d.platforms || '', d.caption || '', d.ytTitle || '', d.ytDesc || '',
+    d.ytPrivacy || 'public', parseInt(d.scheduledAt) || 0, d.scheduledDisplay || '',
     d.status || 'draft',
     req.file ? req.file.path : (existing?.file_path || ''),
     req.file ? req.file.originalname : (existing?.file_name || ''),
@@ -189,47 +216,29 @@ app.patch('/api/posts/:id', (req, res) => {
 async function uploadToYouTube(post) {
   const auth = await getAuthClient();
   const yt = google.youtube({ version: 'v3', auth });
-
   const privacyStatus = post.yt_privacy === 'scheduled' ? 'private' : (post.yt_privacy || 'public');
   const publishAt = (post.yt_privacy === 'scheduled' && post.scheduled_at)
-    ? new Date(post.scheduled_at).toISOString()
-    : undefined;
-
+    ? new Date(post.scheduled_at).toISOString() : undefined;
   const fileStat = fs.statSync(post.file_path);
-  console.log(`  Uploading: "${post.yt_title || post.caption?.slice(0, 50) || 'My Video'}" (${(fileStat.size / 1048576).toFixed(1)} MB)`);
-
+  console.log(`Uploading: "${post.yt_title || post.caption?.slice(0, 50)}" (${(fileStat.size / 1048576).toFixed(1)} MB)`);
   const response = await yt.videos.insert({
     part: ['snippet', 'status'],
     requestBody: {
-      snippet: {
-        title: post.yt_title || post.caption?.slice(0, 100) || 'My Video',
-        description: post.yt_desc || post.caption || '',
-        categoryId: '22'
-      },
-      status: {
-        privacyStatus,
-        ...(publishAt ? { publishAt } : {})
-      }
+      snippet: { title: post.yt_title || post.caption?.slice(0, 100) || 'My Video', description: post.yt_desc || post.caption || '', categoryId: '22' },
+      status: { privacyStatus, ...(publishAt ? { publishAt } : {}) }
     },
     media: { body: fs.createReadStream(post.file_path) }
-  }, {
-    onUploadProgress: e => {
-      const pct = Math.round(e.bytesRead / fileStat.size * 100);
-      if (pct % 25 === 0) console.log(`  ${pct}%...`);
-    }
-  });
-
+  }, { onUploadProgress: e => { const pct = Math.round(e.bytesRead / fileStat.size * 100); if (pct % 25 === 0) console.log(`  ${pct}%...`); } });
   return response.data.id;
 }
 
-// Manual upload endpoint
 app.post('/api/posts/:id/upload', async (req, res) => {
   const post = db.prepare('SELECT * FROM posts WHERE id=?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post not found.' });
   if (!post.file_path || !fs.existsSync(post.file_path))
     return res.status(400).json({ error: 'No video file attached. Edit the post and attach a video.' });
   try {
-    console.log(`▶ Manual upload triggered for post ${post.id}`);
+    console.log(`Manual upload triggered for post ${post.id}`);
     const videoId = await uploadToYouTube(post);
     db.prepare('UPDATE posts SET yt_uploaded=1,yt_video_id=?,status=? WHERE id=?').run(videoId, 'posted', post.id);
     console.log(`✓ Uploaded: https://youtube.com/watch?v=${videoId}`);
@@ -243,20 +252,9 @@ app.post('/api/posts/:id/upload', async (req, res) => {
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 cron.schedule('* * * * *', async () => {
   const now = Date.now();
-  const due = db.prepare(`
-    SELECT * FROM posts
-    WHERE status='scheduled' AND yt_uploaded=0
-    AND platforms LIKE '%yt%'
-    AND scheduled_at > 0
-    AND scheduled_at <= ?
-    AND scheduled_at > ?
-  `).all(now, now - 60000);
-
+  const due = db.prepare(`SELECT * FROM posts WHERE status='scheduled' AND yt_uploaded=0 AND platforms LIKE '%yt%' AND scheduled_at > 0 AND scheduled_at <= ? AND scheduled_at > ?`).all(now, now - 60000);
   for (const post of due) {
-    if (!post.file_path || !fs.existsSync(post.file_path)) {
-      console.log(`⚠ Post ${post.id}: no video file found, skipping auto-upload`);
-      continue;
-    }
+    if (!post.file_path || !fs.existsSync(post.file_path)) { console.log(`⚠ Post ${post.id}: no video file, skipping`); continue; }
     console.log(`⏰ Auto-uploading post ${post.id}...`);
     try {
       const videoId = await uploadToYouTube(post);
@@ -271,5 +269,5 @@ cron.schedule('* * * * *', async () => {
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n🎬 Reelr running on http://localhost:${PORT}`);
-  console.log(`   Scheduler active — checking for due posts every minute.\n`);
+  console.log(`   Scheduler active — checking every minute.\n`);
 });
